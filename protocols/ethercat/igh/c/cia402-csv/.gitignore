@@ -1,0 +1,4 @@
+/bin/
+/modules/*.ko
+/modules/*.so*
+/modules/ethercat
