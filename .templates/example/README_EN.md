@@ -45,6 +45,9 @@ Keep example configuration in `config/`. If systemd is needed, place service
 files in `systemd/` and provide install, start, stop, and uninstall commands.
 Remove unused directories.
 
+Keep installation, deployment, and test scripts in the example's `scripts/`
+directory, creating it when needed.
+
 ## Expected Results
 
 TODO: provide verified output, peripheral behavior, or data and clear success criteria.
