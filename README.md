@@ -69,3 +69,17 @@ cp -R .templates/example protocols/modbus/rtu/c/temperature-sensor
 模板 Makefile 尚未配置，执行构建或运行目标会明确报错。
 
 </details>
+
+<details>
+<summary>更新记录</summary>
+
+## 未发布
+
+- 将客户入口精简为硬件控制、通信协议、应用三个分类。
+- 将综合案例并入 `applications/`，Node-RED 和 OpenPLC 案例归入对应平台。
+- 移除根目录的空配置和脚本占位目录，配套资源跟随各自例程。
+- 将独立例程模板移入隐藏的 `.templates/example/` 目录。
+- 默认 README 和更新记录使用中文，提供英文切换入口。
+- 首页提供三个分类链接和简明目录树，维护说明折叠显示。
+
+</details>
