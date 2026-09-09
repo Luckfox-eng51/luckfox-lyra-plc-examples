@@ -1,0 +1,33 @@
+# Build output
+build/
+dist/
+*.o
+*.a
+*.so
+*.so.*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Node.js
+node_modules/
+npm-debug.log*
+
+# Local settings and credentials
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.log
+
+# Editor and operating system files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
