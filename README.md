@@ -6,6 +6,7 @@ Luckfox Lyra PLC 示例代码，按使用目的分为三个入口。
 每个例程的代码、配置、脚本和运行说明放在一起，不设产品文档目录。
 
 > [RS485 收发测试](hardware/rs485/README.md)提供 C 源码、硬件接线图和两端编译运行步骤。
+> [温湿度传感器读取](protocols/modbus/rtu/c/temperature-humidity/README.md)和[通用传感器读取](protocols/modbus/rtu/c/sensor-read/README.md)提供 Modbus RTU C 例程及中英文教程。
 > 含 `.gitkeep` 的空目录仅用于预留分类。
 
 ## 查找例程
@@ -32,6 +33,9 @@ luckfox-lyra-plc-examples/
 ├── protocols/                 # 通信协议
 │   ├── mqtt/
 │   ├── modbus/
+│   │   └── rtu/c/
+│   │       ├── temperature-humidity/
+│   │       └── sensor-read/
 │   ├── ethercat/
 │   └── canopen/
 │
