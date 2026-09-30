@@ -5,7 +5,7 @@
 Luckfox Lyra PLC 示例代码，按使用目的分为三个入口。
 每个例程的代码、配置、脚本和运行说明放在一起，不设产品文档目录。
 
-> 当前为目录骨架和例程模板，尚未加入可运行或经过硬件验证的例程。
+> [RS485 收发测试](hardware/rs485/README.md)提供 C 源码、硬件接线图和两端编译运行步骤。
 > 含 `.gitkeep` 的空目录仅用于预留分类。
 
 ## 查找例程
@@ -45,41 +45,3 @@ luckfox-lyra-plc-examples/
 
 CAN 原始报文收发放在 `hardware/can/`，CANopen 协议放在
 `protocols/canopen/`。多项技术组成的完整应用统一放在 `applications/`。
-
-<details>
-<summary>新增例程（维护者）</summary>
-
-- 先按技术分类，再按需增加语言层，例如 `protocols/mqtt/python/publish/`、
-  `protocols/modbus/rtu/c/temperature-sensor/`。
-- Node-RED 和 OpenPLC 按平台下的具体例程组织，无需语言层。
-- 源码、依赖、配置、服务文件和安装、测试脚本跟随各自例程。
-  配置放在例程的 `config/`，服务文件放在 `systemd/`，脚本按需放在 `scripts/`。
-- 默认说明使用中文 `README.md`，通过 `README_EN.md` 提供英文版本。
-  两种语言共用代码与配置。
-
-从仓库根目录复制[独立例程模板](.templates/example/README.md)：
-
-```sh
-mkdir -p protocols/modbus/rtu/c
-cp -R .templates/example protocols/modbus/rtu/c/temperature-sensor
-```
-
-模板放在隐藏的 `.templates/` 目录，供维护者使用。
-填写功能、接线、依赖、编译、运行、预期结果和常见错误，并实现适用的构建目标。
-模板 Makefile 尚未配置，执行构建或运行目标会明确报错。
-
-</details>
-
-<details>
-<summary>更新记录</summary>
-
-## 未发布
-
-- 将客户入口精简为硬件控制、通信协议、应用三个分类。
-- 将综合案例并入 `applications/`，Node-RED 和 OpenPLC 案例归入对应平台。
-- 移除根目录的空配置和脚本占位目录，配套资源跟随各自例程。
-- 将独立例程模板移入隐藏的 `.templates/example/` 目录。
-- 默认 README 和更新记录使用中文，提供英文切换入口。
-- 首页提供三个分类链接和简明目录树，维护说明折叠显示。
-
-</details>
