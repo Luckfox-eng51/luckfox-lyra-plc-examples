@@ -81,10 +81,10 @@ USB 重新插拔后，重新确认端口并执行授权命令。新开终端时�
 在**终端 A** 的 `hardware/rs485` 目录执行：
 
 ```bash
-gcc -std=c11 -O2 -Wall -Wextra rs485_test.c -o rs485_test
+gcc -std=c11 -O2 -Wall -Wextra rs485_test.c -o rs485_test_pc
 ```
 
-这条命令将源码 `rs485_test.c` 生成同目录下可运行的 `rs485_test`。编译完成后，继续下面的板端操作。
+这条命令在当前目录生成电脑端程序 `rs485_test_pc`，在 Ubuntu 电脑上运行。
 
 ## 4. 板端：上传源码并编译
 
@@ -107,10 +107,10 @@ ssh lyra@10.10.20.101
 
 ```bash
 cd ~/rs485-example
-gcc -std=c11 -O2 -Wall -Wextra rs485_test.c -o rs485_test
+gcc -std=c11 -O2 -Wall -Wextra rs485_test.c -o rs485_test_plc
 ```
 
-这会在 PLC 的 `~/rs485-example` 目录生成 `rs485_test`。电脑和 PLC 需要各自编译一次，生成的程序不能混用。
+这会在 PLC 的 `~/rs485-example` 目录生成板端程序 `rs485_test_plc`，在 PLC 上运行。两端使用同一份源码，分别编译，生成的程序不能混用。
 
 如果提示 `gcc: command not found`，在支持 APT 的 PLC 镜像中执行以下命令，再重新编译：
 
@@ -126,7 +126,7 @@ sudo apt install -y build-essential
 **第一步：在终端 B（PLC）启动应答程序。**
 
 ```bash
-sudo ./rs485_test -d /dev/ttyS2 -m reply -b 115200 -n 100 -t 60000 \
+sudo ./rs485_test_plc -d /dev/ttyS2 -m reply -b 115200 -n 100 -t 60000 \
   --rs485 off --gpiochip /dev/gpiochip0 --txen-line 15
 ```
 
@@ -135,7 +135,7 @@ sudo ./rs485_test -d /dev/ttyS2 -m reply -b 115200 -n 100 -t 60000 \
 **第二步：在终端 A（电脑）发起测试。**
 
 ```bash
-./rs485_test -d "$RS485_PORT" -m ping -b 115200 -n 100
+./rs485_test_pc -d "$RS485_PORT" -m ping -b 115200 -n 100
 ```
 
 `RS485_PORT` 使用第 2 步设置的实际串口。程序自动发送数据并检查 PLC 的回复。
@@ -149,13 +149,13 @@ sudo ./rs485_test -d /dev/ttyS2 -m reply -b 115200 -n 100 -t 60000 \
 **先在终端 A（电脑）启动应答：**
 
 ```bash
-./rs485_test -d "$RS485_PORT" -m reply -b 115200 -n 100 -t 60000
+./rs485_test_pc -d "$RS485_PORT" -m reply -b 115200 -n 100 -t 60000
 ```
 
 **看到 READY 后，在终端 B（PLC）发送：**
 
 ```bash
-sudo ./rs485_test -d /dev/ttyS2 -m ping -b 115200 -n 100 \
+sudo ./rs485_test_plc -d /dev/ttyS2 -m ping -b 115200 -n 100 \
   --rs485 off --gpiochip /dev/gpiochip0 --txen-line 15
 ```
 
@@ -163,7 +163,7 @@ sudo ./rs485_test -d /dev/ttyS2 -m ping -b 115200 -n 100 \
 
 ## 7. 常用参数
 
-下表列出常用参数，未指定时使用默认值。需要查看完整帮助时，执行 `./rs485_test --help`。
+下表列出常用参数，未指定时使用默认值。查看完整帮助：电脑端执行 `./rs485_test_pc --help`，PLC 端执行 `./rs485_test_plc --help`。
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |
@@ -193,7 +193,7 @@ sudo ./rs485_test -d /dev/ttyS2 -m ping -b 115200 -n 100 \
 **先在 PLC 执行：**
 
 ```bash
-sudo ./rs485_test \
+sudo ./rs485_test_plc \
   -d /dev/ttyS2 -m reply \
   -b 9600 -n 6 -t 60000 \
   --rs485 off --gpiochip /dev/gpiochip0 --txen-line 15
@@ -202,7 +202,7 @@ sudo ./rs485_test \
 **然后在 Ubuntu 执行：**
 
 ```bash
-./rs485_test \
+./rs485_test_pc \
   -d "$RS485_PORT" -m ping \
   -b 9600 -n 6 -l 32 -t 3000 -v
 ```

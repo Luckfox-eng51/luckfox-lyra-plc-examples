@@ -81,10 +81,10 @@ After reconnecting the USB adapter, check the port name and grant access again. 
 In **terminal A**, from `hardware/rs485`, run:
 
 ```bash
-gcc -std=c11 -O2 -Wall -Wextra rs485_test.c -o rs485_test
+gcc -std=c11 -O2 -Wall -Wextra rs485_test.c -o rs485_test_pc
 ```
 
-This command turns `rs485_test.c` into a runnable program named `rs485_test` in the same directory. After it finishes, continue with the PLC steps below.
+This creates `rs485_test_pc` in the current directory. Run this executable on the Ubuntu computer.
 
 ## 4. PLC: Upload the Source and Build
 
@@ -107,10 +107,10 @@ ssh lyra@10.10.20.101
 
 ```bash
 cd ~/rs485-example
-gcc -std=c11 -O2 -Wall -Wextra rs485_test.c -o rs485_test
+gcc -std=c11 -O2 -Wall -Wextra rs485_test.c -o rs485_test_plc
 ```
 
-This creates `rs485_test` in the PLC's `~/rs485-example` directory. Build once on each machine; the computer and PLC executables are not interchangeable.
+This creates `rs485_test_plc` in the PLC's `~/rs485-example` directory. Run it on the PLC. Build the same source on each machine; the executables are not interchangeable.
 
 If you see `gcc: command not found`, run the following on a PLC image that supports APT, then repeat the build command:
 
@@ -126,7 +126,7 @@ This test uses **115200 baud, 100 round trips, and 256 bytes per frame**.
 **Step 1: Start the responder in terminal B (PLC).**
 
 ```bash
-sudo ./rs485_test -d /dev/ttyS2 -m reply -b 115200 -n 100 -t 60000 \
+sudo ./rs485_test_plc -d /dev/ttyS2 -m reply -b 115200 -n 100 -t 60000 \
   --rs485 off --gpiochip /dev/gpiochip0 --txen-line 15
 ```
 
@@ -135,7 +135,7 @@ When `READY` appears, switch to terminal A. The responder waits up to 60 seconds
 **Step 2: Start the test in terminal A (computer).**
 
 ```bash
-./rs485_test -d "$RS485_PORT" -m ping -b 115200 -n 100
+./rs485_test_pc -d "$RS485_PORT" -m ping -b 115200 -n 100
 ```
 
 `RS485_PORT` is the actual serial port set in step 2. The program sends data and checks the PLC's replies automatically.
@@ -149,13 +149,13 @@ After the previous test finishes, you can swap the roles.
 **First, start the responder in terminal A (computer):**
 
 ```bash
-./rs485_test -d "$RS485_PORT" -m reply -b 115200 -n 100 -t 60000
+./rs485_test_pc -d "$RS485_PORT" -m reply -b 115200 -n 100 -t 60000
 ```
 
 **When READY appears, start sending in terminal B (PLC):**
 
 ```bash
-sudo ./rs485_test -d /dev/ttyS2 -m ping -b 115200 -n 100 \
+sudo ./rs485_test_plc -d /dev/ttyS2 -m ping -b 115200 -n 100 \
   --rs485 off --gpiochip /dev/gpiochip0 --txen-line 15
 ```
 
@@ -163,7 +163,7 @@ Both terminals should finish with `result=PASS`. At low baud rates, the computer
 
 ## 7. Common Options
 
-Common options are listed below. Omitted options use their defaults. Run `./rs485_test --help` if you need the full option list.
+Common options are listed below. Omitted options use their defaults. For the full option list, run `./rs485_test_pc --help` on the computer or `./rs485_test_plc --help` on the PLC.
 
 | Option | Default | Description |
 | --- | --- | --- |
@@ -193,7 +193,7 @@ Example: **9600 baud, 6 round trips, 32 bytes of test data**.
 **First, on the PLC:**
 
 ```bash
-sudo ./rs485_test \
+sudo ./rs485_test_plc \
   -d /dev/ttyS2 -m reply \
   -b 9600 -n 6 -t 60000 \
   --rs485 off --gpiochip /dev/gpiochip0 --txen-line 15
@@ -202,7 +202,7 @@ sudo ./rs485_test \
 **Then, on Ubuntu:**
 
 ```bash
-./rs485_test \
+./rs485_test_pc \
   -d "$RS485_PORT" -m ping \
   -b 9600 -n 6 -l 32 -t 3000 -v
 ```
