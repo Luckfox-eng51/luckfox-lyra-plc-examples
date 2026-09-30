@@ -16,7 +16,7 @@
 
 1. 断电接线，将转换器 USB 插头接到电脑 USB 接口，可使用 USB 延长线。
 2. 按下表连接转换器和 PLC，A/B 建议使用双绞线。
-3. 检查接线并按下文设置 RS485 终端电阻拨码后，给 PLC 独立供电。电脑 USB 为转换器供电，不为 PLC 供电。
+3. 检查接线后，给 PLC 独立供电。电脑 USB 为转换器供电，不为 PLC 供电。
 
 | USB 转 RS485 端子 | PLC 端子 | PLC 引脚编号 |
 | --- | --- | ---: |
@@ -30,30 +30,7 @@
 
 ![PLC RS485、RS422 和 CAN 端子定义](images/plc-rs485-pinout.webp)
 
-### RS485 终端电阻拨码开关
-
-拨码开关位于 **PLC 网口旁边的侧面**，位置见下图。按图中观察方向，三个开关从左到右标为 `RS485`、`RS422`、`CAN`；本例使用**最左侧标有 RS485 的开关**，操作时以机壳丝印为准。
-
-![PLC RS485 终端电阻拨码开关位置及向下拨动方向](images/plc-rs485-switch.webp)
-
-[查看拨码开关放大图（SVG）](images/plc-rs485-switch.svg)。照片用于定位开关，不代表测试时应直接照搬照片中的拨动状态。
-
-> **注意：RS485 与 RS422 共用串口资源。** 本板只有一路 RS422/RS485 串口（UART2，`/dev/ttyS2`）。第 9、10 脚既是 RS485 的 `B/A`，也是 RS422 的 `TB/TA`，不能将它们当作两路独立串口，同时连接两套设备进行独立通信。
->
-> 本例使用 RS485 二线通信，只接第 6、9、10 脚，第 7、8 脚 `RB/RA` 保持不接，也不要与 `TB/TA` 短接。为明确本例的终端配置，**RS485 拨码向下，接入 120Ω；未使用的 RS422 拨码向上，断开其终端电阻**。CAN 拨码按实际 CAN 总线需要设置。
->
 > 拨码只控制终端电阻，不用于选择 RS485/RS422 通信模式；同时打开两个拨码也不会增加一路串口。改用 RS422 时，应先断电，按 RS422 接线和总线终端要求重新配置。
-
-| RS485 拨码位置 | 功能 | 本例设置 |
-| --- | --- | --- |
-| 向下拨 | 在 RS485 A/B 之间接入板载 **120Ω 终端电阻** | 本例只有 USB 转换器和 PLC 两个端点，PLC 端设为此位置 |
-| 向上拨 | 断开板载终端电阻 | 多节点总线中，PLC 位于总线中间时使用 |
-
-在 PLC 断电时设置拨码，再上电测试。转换器端也应按其说明配置总线末端的 120Ω 终端电阻；若已经内置或启用了终端电阻，不要再重复并接。多节点总线只在两个物理末端接入终端电阻，中间节点关闭。
-
-波特率由程序 `-b` 参数设置，TXEN 收发方向由程序控制 GPIO15，均不由终端电阻拨码设置。
-
-向下接入 120Ω 的定义见[厂家产品页“资源简介”](https://www.luckfox.cn/Luckfox-Lyra-PLC)。
 
 ### PLC 串口与收发控制
 
@@ -77,174 +54,116 @@ PLC 需要软件控制 TXEN。C 程序在板端完成“TXEN 拉高 → 发送 �
 cd hardware/rs485
 ```
 
-插入 USB 转换器后，查看设备：
+插入 USB 转换器后，查看电脑识别到的串口：
 
 ```bash
-lsusb
-ls -l /dev/serial/by-id/
 ls -l /dev/ttyUSB* /dev/ttyACM* 2>/dev/null
 ```
 
-转换器可能是 `/dev/ttyUSB0`，也可能是 `/dev/ttyACM0`。某一类节点不存在是正常的，以实际检测结果为准。插拔前后对比可确定新增设备。
-
-优先使用 `/dev/serial/by-id/` 下的稳定路径。下面是本次转换器的路径，请替换为自己看到的名称；如果没有 `by-id`，可直接设置实际设备节点，例如 `RS485_PORT=/dev/ttyACM0`：
+**串口名称以实际识别结果为准。** 下方以 `/dev/ttyUSB0` 为例；如果检测到的是 `/dev/ttyACM0` 或其他名称，替换为实际端口即可。
 
 ```bash
-RS485_PORT=/dev/serial/by-id/usb-1a86_USB_Single_Serial_5658002104-if00
-readlink -f "$RS485_PORT"
+RS485_PORT=/dev/ttyUSB0
 ```
 
-安装编译工具和 ACL 工具，并只给当前用户增加该串口的读写权限：
+安装编译和权限工具，并授予当前用户该串口的读写权限：
 
 ```bash
 sudo apt update
 sudo apt install -y build-essential acl
 sudo setfacl -m "u:$(id -un):rw" "$RS485_PORT"
-getfacl -p "$RS485_PORT"
 ```
 
-ACL 输出中应包含当前用户的 `rw-` 权限。USB 重新插拔后需要再次执行 `setfacl`。`RS485_PORT` 只在当前终端有效，新开终端时需要重新设置。
-
-若希望通过用户组长期授权，也可以执行 `sudo usermod -aG dialout "$(id -un)"`，然后完整注销并重新登录；适用于设备节点所属组为 `dialout` 的 Ubuntu 系统。
+USB 重新插拔后，重新确认端口并执行授权命令。新开终端时需重新设置 `RS485_PORT`。
 
 ## 3. 电脑端：编译程序
 
-在终端 A 的 `hardware/rs485` 目录执行：
+在**终端 A** 的 `hardware/rs485` 目录执行：
 
 ```bash
-mkdir -p build
-gcc -std=c11 -O2 -Wall -Wextra -Wpedantic -Werror \
-  rs485_test.c -o build/rs485_test
-./build/rs485_test --help
+gcc -std=c11 -O2 -Wall -Wextra rs485_test.c -o rs485_test
 ```
 
-生成电脑端程序 `build/rs485_test`。程序只使用 Linux 系统接口和 libc，不需要安装串口库。
+这条命令将源码 `rs485_test.c` 生成同目录下可运行的 `rs485_test`。编译完成后，继续下面的板端操作。
 
-## 4. 板端：复制源码并编译
+## 4. 板端：上传源码并编译
 
-先在**终端 A（Ubuntu）**设置 PLC 登录地址。`10.10.20.101` 是示例地址，替换为 PLC 当前 IP，用户名按实际系统修改：
+**第一步：在终端 A（电脑）上传源码。** 文中的 `10.10.20.101` 请替换为 PLC 实际 IP，用户名按实际系统修改。
 
 ```bash
-PLC_HOST=lyra@10.10.20.101
-ssh "$PLC_HOST" 'mkdir -p ~/rs485-example'
-scp rs485_test.c "$PLC_HOST":rs485-example/
+ssh lyra@10.10.20.101 'mkdir -p ~/rs485-example'
+scp rs485_test.c lyra@10.10.20.101:rs485-example/
 ```
 
-按提示输入 PLC 登录密码。上述命令将源码复制到 PLC 登录用户的 `~/rs485-example/`，不是复制电脑编译出的程序。
+第一条在 PLC 上创建存放目录，第二条将源码复制进去，按提示输入 PLC 密码即可。
 
-再打开**终端 B**，登录 PLC：
+**第二步：打开终端 B，登录 PLC。**
 
 ```bash
 ssh lyra@10.10.20.101
 ```
 
-登录后，以下命令都在 **PLC 上**执行：
+**第三步：登录后，在 PLC 上编译。**
 
 ```bash
 cd ~/rs485-example
-gcc --version
-ls -l /dev/ttyS2 /dev/gpiochip0
+gcc -std=c11 -O2 -Wall -Wextra rs485_test.c -o rs485_test
 ```
 
-如果板端没有 GCC，使用板端系统的包管理器安装。对于支持 APT 的镜像，可执行：
+这会在 PLC 的 `~/rs485-example` 目录生成 `rs485_test`。电脑和 PLC 需要各自编译一次，生成的程序不能混用。
+
+如果提示 `gcc: command not found`，在支持 APT 的 PLC 镜像中执行以下命令，再重新编译：
 
 ```bash
 sudo apt update
 sudo apt install -y build-essential
 ```
 
-在板端编译同一份源码：
-
-```bash
-mkdir -p build
-gcc -std=c11 -O2 -Wall -Wextra -Wpedantic -Werror \
-  rs485_test.c -o build/rs485_test
-./build/rs485_test --help
-sudo -v
-```
-
-两端程序路径都叫 `build/rs485_test`，但位于不同机器上。常见 Ubuntu 电脑为 x86_64，PLC 为 ARM，**两端分别编译，不能直接混用可执行文件**。PLC 使用 `sudo` 运行，以访问串口和 GPIO。
-
 ## 5. 执行测试：电脑发送，PLC 应答
 
-保留两个终端：终端 A 运行 Ubuntu 程序，终端 B 通过 SSH 运行 PLC 程序。**先启动 `reply`，看到 `READY` 后，再启动 `ping`。**
+本轮使用 **115200 波特率、100 次往返、每帧 256 字节**。
 
-本轮使用 **115200 波特率、100 次往返、256 字节测试数据**。
-
-### 5.1 先在终端 B（PLC）启动应答
+**第一步：在终端 B（PLC）启动应答程序。**
 
 ```bash
-cd ~/rs485-example
-sudo ./build/rs485_test \
-  -d /dev/ttyS2 -m reply \
-  -b 115200 -n 100 -t 60000 -g 5 \
+sudo ./rs485_test -d /dev/ttyS2 -m reply -b 115200 -n 100 -t 60000 \
   --rs485 off --gpiochip /dev/gpiochip0 --txen-line 15
 ```
 
-出现 `TXEN ... active_high=1 idle=0` 和 `READY ... mode=reply` 后切换到终端 A。`-t 60000` 允许等待请求最多 60 秒，方便手动切换终端；它不会让每次应答等待 60 秒。若应答端等待超时退出，重新启动应答端。
+看到 `READY` 后，切回终端 A。应答端最多等待请求 60 秒，超时退出后重新启动即可。PLC 命令中的 GPIO 参数用于自动切换发送和接收，运行时保留。
 
-这里使用 `--rs485 off`，在测试期间关闭内核 RTS 方向控制，改用本板独立的 TXEN GPIO。正常退出时程序恢复之前的串口设置。
-
-### 5.2 在终端 A（Ubuntu）发起测试
-
-仍在 `hardware/rs485` 目录中，且已设置 `RS485_PORT`：
+**第二步：在终端 A（电脑）发起测试。**
 
 ```bash
-./build/rs485_test \
-  -d "$RS485_PORT" -m ping \
-  -b 115200 -n 100 -l 256 -t 3000 -g 5
+./rs485_test -d "$RS485_PORT" -m ping -b 115200 -n 100
 ```
 
-电脑发送请求后等待 PLC 应答，并检查序号、内容和 CRC。测试结束后，两端都应看到 `SUMMARY ... result=PASS`。
+`RS485_PORT` 使用第 2 步设置的实际串口。程序自动发送数据并检查 PLC 的回复。
 
-### 5.3 检查结果
+**第三步：查看结果。** 两端最后都显示 `SUMMARY ... result=PASS`，表示本轮测试通过。需要提前停止时按 `Ctrl+C`；再次测试前，等待两端程序都退出。
 
-两端程序退出后，立即在各自终端查看退出码：
+## 6. 反向测试（可选）：PLC 发送，电脑应答
+
+上一轮结束后，可以交换角色测试。
+
+**先在终端 A（电脑）启动应答：**
 
 ```bash
-echo $?
+./rs485_test -d "$RS485_PORT" -m reply -b 115200 -n 100 -t 60000
 ```
 
-退出码应为 `0`。读取退出码前不要先执行其他命令，因为 `$?` 代表上一条命令的状态。
-
-| SUMMARY 字段 | 本轮正常值 | 含义 |
-| --- | --- | --- |
-| `sent` | `100` | 本端发送帧数 |
-| `valid` / `expected` | `100` / `100` | 有效帧数达到预期 |
-| `timeouts` / `mismatch` | 均为 `0` | 无超时、无内容不匹配 |
-| `crc_errors` / `discarded_bytes` | 均为 `0` | 无 CRC 错误、无异常字节丢弃 |
-| `unexpected` | `0` | 无意外帧 |
-| `txen_cycles` | PLC 为 `100`，电脑为 `0` | GPIO 收发切换次数 |
-| `result` | `PASS` | 本端测试通过 |
-
-按 `Ctrl+C` 可以提前停止，退出码为 `130`。结束后程序释放设备，并在正常清理时将 TXEN 置低。再次测试前，确认两端上一轮程序都已退出。
-
-## 6. 反向测试：PLC 发送，电脑应答
-
-第一轮结束后交换角色，验证 PLC 主动发起通信。
-
-**先在终端 A（Ubuntu）启动应答：**
+**看到 READY 后，在终端 B（PLC）发送：**
 
 ```bash
-./build/rs485_test \
-  -d "$RS485_PORT" -m reply \
-  -b 115200 -n 100 -t 60000 -g 5
-```
-
-**看到 READY 后，在终端 B（PLC）发起：**
-
-```bash
-sudo ./build/rs485_test \
-  -d /dev/ttyS2 -m ping \
-  -b 115200 -n 100 -l 256 -t 3000 -g 5 \
+sudo ./rs485_test -d /dev/ttyS2 -m ping -b 115200 -n 100 \
   --rs485 off --gpiochip /dev/gpiochip0 --txen-line 15
 ```
 
-同样检查两端 `result=PASS` 和退出码 `0`。USB 应答端发送最后一帧后会保留短暂的排空等待，低波特率下可能多等数秒才退出，等待它回到命令行即可。
+两端最后都应显示 `result=PASS`。低波特率下，电脑应答端发送完毕后可能多等数秒才退出。
 
 ## 7. 常用参数
 
-完整参数可通过 `./build/rs485_test --help` 查看。
+下表列出常用参数，未指定时使用默认值。需要查看完整帮助时，执行 `./rs485_test --help`。
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |
@@ -274,7 +193,7 @@ sudo ./build/rs485_test \
 **先在 PLC 执行：**
 
 ```bash
-sudo ./build/rs485_test \
+sudo ./rs485_test \
   -d /dev/ttyS2 -m reply \
   -b 9600 -n 6 -t 60000 \
   --rs485 off --gpiochip /dev/gpiochip0 --txen-line 15
@@ -283,7 +202,7 @@ sudo ./build/rs485_test \
 **然后在 Ubuntu 执行：**
 
 ```bash
-./build/rs485_test \
+./rs485_test \
   -d "$RS485_PORT" -m ping \
   -b 9600 -n 6 -l 32 -t 3000 -v
 ```
@@ -297,10 +216,10 @@ sudo ./build/rs485_test \
 | 现象 | 检查方法 |
 | --- | --- |
 | `Permission denied` | 电脑重新执行串口 ACL 授权；PLC 用 `sudo` 运行 |
-| 找不到串口 | 确认 USB 转换器已插入，重新查看 `/dev/serial/by-id/` 或实际设备节点 |
+| 找不到串口 | 确认 USB 转换器已插入，查看实际串口名称并更新 `RS485_PORT` |
 | `Device or resource busy` / GPIO 申请失败 | 退出串口助手、上轮测试或占用 UART2 / GPIO15 的程序；确认 PLC Web 页面已关闭 UART2 |
 | `Manual GPIO TXEN requires kernel RS485 mode disabled` | PLC 命令保留 `--rs485 off`，同时保留两个 GPIO 参数 |
-| 超时、CRC 错误或内容不符 | 检查 A/B/SGND、终端电阻拨码、两端波特率、先应答后发起的启动顺序，以及是否使用了本例的两个程序 |
+| 超时、CRC 错误或内容不符 | 检查 A/B/SGND、两端波特率、先应答后发起的启动顺序，以及是否使用了本例的两个程序 |
 | `RS485_IOCTL unavailable` 出现在 USB 端 | 部分 USB 串口不支持内核 RS485 ioctl；电脑保留默认 `keep`，由转换器自动切换方向，以最终测试结果为准 |
 | `Exec format error` | 可执行文件架构不匹配，在对应机器上重新编译源码 |
 

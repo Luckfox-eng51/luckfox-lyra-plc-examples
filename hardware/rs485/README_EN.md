@@ -16,7 +16,7 @@ Prepare an Ubuntu computer, a separately powered Luckfox Lyra PLC, a USB to RS48
 
 1. With power disconnected, connect the adapter's USB plug to the computer, using a USB extension cable if needed.
 2. Connect the adapter to the PLC as shown below. Use a twisted pair for A/B where possible.
-3. Check the wiring and set the RS485 termination switch as described below, then power the PLC separately. The computer's USB port powers the adapter, not the PLC.
+3. Check the wiring, then power the PLC separately. The computer's USB port powers the adapter, not the PLC.
 
 | USB to RS485 terminal | PLC terminal | PLC pin number |
 | --- | --- | ---: |
@@ -30,30 +30,7 @@ Connect signal ground to PLC pin 6, `SGND`, to provide a common reference. For a
 
 ![PLC RS485, RS422, and CAN pinout](images/plc-rs485-pinout.webp)
 
-### RS485 Termination Switch
-
-The switches are on the **side of the PLC, beside the Ethernet ports**, as shown below. From left to right in this view, they are marked `RS485`, `RS422`, and `CAN`. Use the **first switch on the left, marked RS485**, and check the label on the enclosure before moving it.
-
-![PLC RS485 termination switch location and downward direction](images/plc-rs485-switch.webp)
-
-[Open the enlarged switch diagram (SVG)](images/plc-rs485-switch.svg). The photo identifies the switch; do not copy its photographed position as the test setting.
-
-> **Note: RS485 and RS422 share serial resources.** This board has one RS422/RS485 serial port (UART2, `/dev/ttyS2`). Pins 9 and 10 serve as both RS485 `B/A` and RS422 `TB/TA`. Do not treat them as two independent serial ports or connect two separate devices for independent communication at the same time.
->
-> This example uses two-wire RS485. Connect only pins 6, 9, and 10. Leave pins 7 and 8 (`RB/RA`) unconnected and do not bridge them to `TB/TA`. For a defined termination setup, **set the RS485 switch down to connect 120 Ω, and set the unused RS422 switch up to disconnect its termination resistor**. Set the CAN switch according to the actual CAN bus requirements.
->
 > The switches control termination only; they do not select RS485 or RS422 mode. Enabling both switches does not provide another serial port. Before changing to RS422, power off and configure the wiring and termination for the RS422 connection.
-
-| RS485 switch position | Function | Setting for this example |
-| --- | --- | --- |
-| Down | Connect the onboard **120 Ω termination resistor** across RS485 A/B | Use this position: the USB adapter and PLC are the two endpoints |
-| Up | Disconnect the onboard termination resistor | Use when the PLC is an intermediate node on a multi-node bus |
-
-Set the switch with PLC power off, then power up for the test. Configure 120 Ω termination at the adapter end according to its manual. If termination is already built in or enabled, do not add another resistor in parallel. On a multi-node bus, enable termination only at its two physical ends.
-
-The program's `-b` option sets the baud rate, and the program controls GPIO15 TXEN for transmit/receive direction. The termination switches control neither setting.
-
-The down position is documented under the interface description on the [manufacturer product page](https://www.luckfox.cn/Luckfox-Lyra-PLC).
 
 ### PLC Serial Port and Direction Control
 
@@ -77,174 +54,116 @@ Run computer commands in **terminal A** on Ubuntu. Start in the repository root,
 cd hardware/rs485
 ```
 
-After connecting the USB adapter, list the devices:
+Connect the USB adapter and list the detected serial ports:
 
 ```bash
-lsusb
-ls -l /dev/serial/by-id/
 ls -l /dev/ttyUSB* /dev/ttyACM* 2>/dev/null
 ```
 
-The adapter may appear as `/dev/ttyUSB0` or `/dev/ttyACM0`. It is normal for one of these device types to be absent. Compare the device list before and after connecting the adapter to identify the correct port.
-
-Prefer the stable path under `/dev/serial/by-id/`. The following is the path of the tested adapter; replace it with your device name. If no `by-id` path is available, use the actual device node, for example `RS485_PORT=/dev/ttyACM0`:
+**Use the port name detected on your computer.** The example below uses `/dev/ttyUSB0`; replace it with `/dev/ttyACM0` or another name if that is the port your computer detects.
 
 ```bash
-RS485_PORT=/dev/serial/by-id/usb-1a86_USB_Single_Serial_5658002104-if00
-readlink -f "$RS485_PORT"
+RS485_PORT=/dev/ttyUSB0
 ```
 
-Install the compiler and ACL tools, then grant the current user read/write access to this serial port:
+Install the compiler and permission tools, then grant the current user read/write access to that port:
 
 ```bash
 sudo apt update
 sudo apt install -y build-essential acl
 sudo setfacl -m "u:$(id -un):rw" "$RS485_PORT"
-getfacl -p "$RS485_PORT"
 ```
 
-The ACL output should show `rw-` access for your user. Repeat `setfacl` after unplugging and reconnecting the adapter. `RS485_PORT` is local to the current terminal; set it again when opening a new terminal.
-
-For persistent group access, you can instead run `sudo usermod -aG dialout "$(id -un)"`, then fully log out and log back in. This applies to Ubuntu systems where the device node belongs to the `dialout` group.
+After reconnecting the USB adapter, check the port name and grant access again. Set `RS485_PORT` again when opening a new terminal.
 
 ## 3. Computer: Build the Program
 
-In terminal A, from `hardware/rs485`, run:
+In **terminal A**, from `hardware/rs485`, run:
 
 ```bash
-mkdir -p build
-gcc -std=c11 -O2 -Wall -Wextra -Wpedantic -Werror \
-  rs485_test.c -o build/rs485_test
-./build/rs485_test --help
+gcc -std=c11 -O2 -Wall -Wextra rs485_test.c -o rs485_test
 ```
 
-The computer executable is `build/rs485_test`. The program uses Linux system interfaces and libc; no additional serial library is required.
+This command turns `rs485_test.c` into a runnable program named `rs485_test` in the same directory. After it finishes, continue with the PLC steps below.
 
-## 4. PLC: Copy the Source and Build
+## 4. PLC: Upload the Source and Build
 
-In **terminal A (Ubuntu)**, set the PLC login address. `10.10.20.101` is an example; replace it with the current PLC IP and adjust the username if needed:
+**Step 1: Upload the source from terminal A (computer).** Replace `10.10.20.101` with your PLC's IP address and adjust the username if needed.
 
 ```bash
-PLC_HOST=lyra@10.10.20.101
-ssh "$PLC_HOST" 'mkdir -p ~/rs485-example'
-scp rs485_test.c "$PLC_HOST":rs485-example/
+ssh lyra@10.10.20.101 'mkdir -p ~/rs485-example'
+scp rs485_test.c lyra@10.10.20.101:rs485-example/
 ```
 
-Enter the PLC login password when prompted. These commands copy the source into the PLC user's `~/rs485-example/` directory, rather than copying the computer executable.
+The first command creates a directory on the PLC; the second copies the source into it. Enter the PLC password when prompted.
 
-Open **terminal B** and log in to the PLC:
+**Step 2: Open terminal B and log in to the PLC.**
 
 ```bash
 ssh lyra@10.10.20.101
 ```
 
-After login, run the following commands **on the PLC**:
+**Step 3: After login, build the program on the PLC.**
 
 ```bash
 cd ~/rs485-example
-gcc --version
-ls -l /dev/ttyS2 /dev/gpiochip0
+gcc -std=c11 -O2 -Wall -Wextra rs485_test.c -o rs485_test
 ```
 
-If GCC is missing, install it using the board image's package manager. On images that support APT, run:
+This creates `rs485_test` in the PLC's `~/rs485-example` directory. Build once on each machine; the computer and PLC executables are not interchangeable.
+
+If you see `gcc: command not found`, run the following on a PLC image that supports APT, then repeat the build command:
 
 ```bash
 sudo apt update
 sudo apt install -y build-essential
 ```
 
-Build the same source on the PLC:
-
-```bash
-mkdir -p build
-gcc -std=c11 -O2 -Wall -Wextra -Wpedantic -Werror \
-  rs485_test.c -o build/rs485_test
-./build/rs485_test --help
-sudo -v
-```
-
-Both executables are named `build/rs485_test`, but they are on different machines. A typical Ubuntu computer uses x86_64, while the PLC uses ARM. **Build on each machine; the executables are not interchangeable.** Run the PLC program with `sudo` to access the serial port and GPIO.
-
 ## 5. Run: Computer Sends, PLC Replies
 
-Keep both terminals open: terminal A runs the Ubuntu program, and terminal B runs the PLC program over SSH. **Start `reply` first, wait for `READY`, then start `ping`.**
+This test uses **115200 baud, 100 round trips, and 256 bytes per frame**.
 
-This test uses **115200 baud, 100 round trips, and 256 bytes of test data per frame**.
-
-### 5.1 Start the Responder in Terminal B (PLC)
+**Step 1: Start the responder in terminal B (PLC).**
 
 ```bash
-cd ~/rs485-example
-sudo ./build/rs485_test \
-  -d /dev/ttyS2 -m reply \
-  -b 115200 -n 100 -t 60000 -g 5 \
+sudo ./rs485_test -d /dev/ttyS2 -m reply -b 115200 -n 100 -t 60000 \
   --rs485 off --gpiochip /dev/gpiochip0 --txen-line 15
 ```
 
-After `TXEN ... active_high=1 idle=0` and `READY ... mode=reply` appear, switch to terminal A. `-t 60000` allows up to 60 seconds to wait for a request, giving you time to switch terminals. It does not delay each reply by 60 seconds. Restart the responder if it exits after a timeout.
+When `READY` appears, switch to terminal A. The responder waits up to 60 seconds for a request; restart it if it exits after a timeout. Keep the GPIO options in the PLC command so the program can switch between transmit and receive automatically.
 
-`--rs485 off` disables kernel RTS direction control during the test so the program can use the PLC's separate TXEN GPIO. The program restores previous serial settings during normal cleanup.
-
-### 5.2 Start the Initiator in Terminal A (Ubuntu)
-
-Remain in `hardware/rs485`, with `RS485_PORT` already set:
+**Step 2: Start the test in terminal A (computer).**
 
 ```bash
-./build/rs485_test \
-  -d "$RS485_PORT" -m ping \
-  -b 115200 -n 100 -l 256 -t 3000 -g 5
+./rs485_test -d "$RS485_PORT" -m ping -b 115200 -n 100
 ```
 
-The computer sends a request, waits for the PLC reply, and checks the sequence number, content, and CRC. Both terminals should finish with `SUMMARY ... result=PASS`.
+`RS485_PORT` is the actual serial port set in step 2. The program sends data and checks the PLC's replies automatically.
 
-### 5.3 Check the Results
+**Step 3: Check the result.** Both terminals should finish with `SUMMARY ... result=PASS`. Press `Ctrl+C` to stop early. Wait for both programs to exit before starting another test.
 
-Immediately after the program exits, check its exit code in each terminal:
+## 6. Optional Reverse Test: PLC Sends, Computer Replies
+
+After the previous test finishes, you can swap the roles.
+
+**First, start the responder in terminal A (computer):**
 
 ```bash
-echo $?
+./rs485_test -d "$RS485_PORT" -m reply -b 115200 -n 100 -t 60000
 ```
 
-The exit code should be `0`. Do not run another command before reading it: `$?` is the status of the most recent command.
-
-| SUMMARY field | Expected in this test | Meaning |
-| --- | --- | --- |
-| `sent` | `100` | Frames sent by this endpoint |
-| `valid` / `expected` | `100` / `100` | All expected frames were valid |
-| `timeouts` / `mismatch` | Both `0` | No timeout or content mismatch |
-| `crc_errors` / `discarded_bytes` | Both `0` | No CRC errors or discarded bytes |
-| `unexpected` | `0` | No unexpected frames |
-| `txen_cycles` | `100` on PLC, `0` on computer | GPIO direction control cycles |
-| `result` | `PASS` | This endpoint passed |
-
-Press `Ctrl+C` to stop early; the exit code is `130`. Normal cleanup releases the devices and sets TXEN low. Before starting another test, make sure both programs from the previous test have exited.
-
-## 6. Reverse Test: PLC Sends, Computer Replies
-
-After the first test finishes, swap the roles to check communication initiated by the PLC.
-
-**Start the responder in terminal A (Ubuntu) first:**
+**When READY appears, start sending in terminal B (PLC):**
 
 ```bash
-./build/rs485_test \
-  -d "$RS485_PORT" -m reply \
-  -b 115200 -n 100 -t 60000 -g 5
-```
-
-**After READY appears, start the initiator in terminal B (PLC):**
-
-```bash
-sudo ./build/rs485_test \
-  -d /dev/ttyS2 -m ping \
-  -b 115200 -n 100 -l 256 -t 3000 -g 5 \
+sudo ./rs485_test -d /dev/ttyS2 -m ping -b 115200 -n 100 \
   --rs485 off --gpiochip /dev/gpiochip0 --txen-line 15
 ```
 
-Check for `result=PASS` and exit code `0` on both endpoints. After sending the last frame, the USB responder waits briefly for transmission to finish. At low baud rates, it may take a few extra seconds to return to the shell.
+Both terminals should finish with `result=PASS`. At low baud rates, the computer responder may take a few extra seconds to exit after sending the last reply.
 
 ## 7. Common Options
 
-Run `./build/rs485_test --help` for the full option list.
+Common options are listed below. Omitted options use their defaults. Run `./rs485_test --help` if you need the full option list.
 
 | Option | Default | Description |
 | --- | --- | --- |
@@ -274,7 +193,7 @@ Example: **9600 baud, 6 round trips, 32 bytes of test data**.
 **First, on the PLC:**
 
 ```bash
-sudo ./build/rs485_test \
+sudo ./rs485_test \
   -d /dev/ttyS2 -m reply \
   -b 9600 -n 6 -t 60000 \
   --rs485 off --gpiochip /dev/gpiochip0 --txen-line 15
@@ -283,7 +202,7 @@ sudo ./build/rs485_test \
 **Then, on Ubuntu:**
 
 ```bash
-./build/rs485_test \
+./rs485_test \
   -d "$RS485_PORT" -m ping \
   -b 9600 -n 6 -l 32 -t 3000 -v
 ```
@@ -297,10 +216,10 @@ Increase the initiator's `-t` for long frames at low baud rates. At 9600 baud wi
 | Symptom | What to check |
 | --- | --- |
 | `Permission denied` | Reapply the serial ACL on the computer; use `sudo` on the PLC |
-| Serial device not found | Check the USB connection and list `/dev/serial/by-id/` or the actual device nodes again |
+| Serial device not found | Check the USB connection, find the detected port name, and update `RS485_PORT` |
 | `Device or resource busy` / GPIO request fails | Close serial terminals, previous test processes, and applications using UART2 / GPIO15; close UART2 in the PLC web interface |
 | `Manual GPIO TXEN requires kernel RS485 mode disabled` | Keep `--rs485 off` and both GPIO options in the PLC command |
-| Timeout, CRC error, or mismatch | Check A/B/SGND wiring, termination switches, matching baud rates, responder-first startup, and that both endpoints run this example |
+| Timeout, CRC error, or mismatch | Check A/B/SGND wiring, matching baud rates, responder-first startup, and that both endpoints run this example |
 | `RS485_IOCTL unavailable` on USB | Some USB drivers lack kernel RS485 ioctls. Keep the default `keep` on the computer, let the adapter control direction, and check the final result |
 | `Exec format error` | Wrong executable architecture; rebuild the source on the target machine |
 
