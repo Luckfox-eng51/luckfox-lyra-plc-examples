@@ -1,0 +1,4 @@
+/temperature_humidity_pc
+/temperature_humidity_plc
+__pycache__/
+*.pyc

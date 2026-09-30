@@ -1,0 +1,4 @@
+/sensor_read_pc
+/sensor_read_plc
+__pycache__/
+*.pyc

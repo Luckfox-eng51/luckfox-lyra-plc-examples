@@ -54,27 +54,25 @@ Run computer commands in **terminal A** on Ubuntu. Start in the repository root,
 cd hardware/rs485
 ```
 
-Connect the USB adapter and list the detected serial ports:
+Unplug the USB to RS485 adapter, then run this command on the Ubuntu computer to list the current tty devices:
 
 ```bash
-ls -l /dev/ttyUSB* /dev/ttyACM* 2>/dev/null
+ls /dev/tty*
 ```
 
-**Use the port name detected on your computer.** The example below uses `/dev/ttyUSB0`; replace it with `/dev/ttyACM0` or another name if that is the port your computer detects.
+Plug in the adapter and run the same command again. Compare the lists before and after connecting it. The newly added tty device is the adapter's serial port.
 
-```bash
-RS485_PORT=/dev/ttyUSB0
-```
+**All following computer commands use `/dev/ttyACM0` as an example.** If the new device has a different name, replace `/dev/ttyACM0` in the commands with that name.
 
 Install the compiler and permission tools, then grant the current user read/write access to that port:
 
 ```bash
 sudo apt update
 sudo apt install -y build-essential acl
-sudo setfacl -m "u:$(id -un):rw" "$RS485_PORT"
+sudo setfacl -m "u:$(id -un):rw" /dev/ttyACM0
 ```
 
-After reconnecting the USB adapter, check the port name and grant access again. Set `RS485_PORT` again when opening a new terminal.
+After reconnecting the USB adapter, check the port name and grant access again.
 
 ## 3. Computer: Build the Program
 
@@ -88,11 +86,11 @@ This creates `rs485_test_pc` in the current directory. Run this executable on th
 
 ## 4. PLC: Upload the Source and Build
 
-**Step 1: Upload the source from terminal A (computer).** Replace `10.10.20.101` with your PLC's IP address and adjust the username if needed.
+**Step 1: Upload the source from terminal A (computer).** Replace `PLC_IP` with your PLC's IP address and adjust the username if needed.
 
 ```bash
-ssh lyra@10.10.20.101 'mkdir -p ~/rs485-example'
-scp rs485_test.c lyra@10.10.20.101:rs485-example/
+ssh lyra@PLC_IP 'mkdir -p ~/rs485-example'
+scp rs485_test.c lyra@PLC_IP:rs485-example/
 ```
 
 The first command creates a directory on the PLC; the second copies the source into it. Enter the PLC password when prompted.
@@ -100,7 +98,7 @@ The first command creates a directory on the PLC; the second copies the source i
 **Step 2: Open terminal B and log in to the PLC.**
 
 ```bash
-ssh lyra@10.10.20.101
+ssh lyra@PLC_IP
 ```
 
 **Step 3: After login, build the program on the PLC.**
@@ -135,10 +133,10 @@ When `READY` appears, switch to terminal A. The responder waits up to 60 seconds
 **Step 2: Start the test in terminal A (computer).**
 
 ```bash
-./rs485_test_pc -d "$RS485_PORT" -m ping -b 115200 -n 100
+./rs485_test_pc -d /dev/ttyACM0 -m ping -b 115200 -n 100
 ```
 
-`RS485_PORT` is the actual serial port set in step 2. The program sends data and checks the PLC's replies automatically.
+The program sends data and checks the PLC's replies automatically.
 
 **Step 3: Check the result.** Both terminals should finish with `SUMMARY ... result=PASS`. Press `Ctrl+C` to stop early. Wait for both programs to exit before starting another test.
 
@@ -149,7 +147,7 @@ After the previous test finishes, you can swap the roles.
 **First, start the responder in terminal A (computer):**
 
 ```bash
-./rs485_test_pc -d "$RS485_PORT" -m reply -b 115200 -n 100 -t 60000
+./rs485_test_pc -d /dev/ttyACM0 -m reply -b 115200 -n 100 -t 60000
 ```
 
 **When READY appears, start sending in terminal B (PLC):**
@@ -167,7 +165,7 @@ Common options are listed below. Omitted options use their defaults. For the ful
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `-d, --device PATH` | Required | Serial device; use the detected USB port on the computer and `/dev/ttyS2` on the PLC |
+| `-d, --device PATH` | Required | Serial device; this example uses `/dev/ttyACM0` on the computer and `/dev/ttyS2` on the PLC |
 | `-m, --mode ping\|reply` | Required | `ping` initiates requests; `reply` receives and answers them |
 | `-b, --baud N` | `9600` | Baud rate; **must match on both endpoints** |
 | `-n, --count N` | `100` | Frame count, 1–1000000; use the same value on both endpoints. `0` does not mean unlimited |
@@ -203,7 +201,7 @@ sudo ./rs485_test_plc \
 
 ```bash
 ./rs485_test_pc \
-  -d "$RS485_PORT" -m ping \
+  -d /dev/ttyACM0 -m ping \
   -b 9600 -n 6 -l 32 -t 3000 -v
 ```
 
@@ -216,7 +214,7 @@ Increase the initiator's `-t` for long frames at low baud rates. At 9600 baud wi
 | Symptom | What to check |
 | --- | --- |
 | `Permission denied` | Reapply the serial ACL on the computer; use `sudo` on the PLC |
-| Serial device not found | Check the USB connection, find the detected port name, and update `RS485_PORT` |
+| Serial device not found | Compare the tty device lists before and after connecting the adapter, then replace `/dev/ttyACM0` in the command with the newly added device name |
 | `Device or resource busy` / GPIO request fails | Close serial terminals, previous test processes, and applications using UART2 / GPIO15; close UART2 in the PLC web interface |
 | `Manual GPIO TXEN requires kernel RS485 mode disabled` | Keep `--rs485 off` and both GPIO options in the PLC command |
 | Timeout, CRC error, or mismatch | Check A/B/SGND wiring, matching baud rates, responder-first startup, and that both endpoints run this example |
@@ -224,3 +222,5 @@ Increase the initiator's `-t` for long frames at low baud rates. At 9600 baud wi
 | `Exec format error` | Wrong executable architecture; rebuild the source on the target machine |
 
 A plain serial text terminal or Modbus slave cannot replace this example's `reply` program. Both endpoints must use the same test frame protocol.
+
+To read a Modbus RTU sensor, use the [temperature/humidity reader](../../protocols/modbus/rtu/c/temperature-humidity/README_EN.md) or the [generic sensor reader](../../protocols/modbus/rtu/c/sensor-read/README_EN.md).

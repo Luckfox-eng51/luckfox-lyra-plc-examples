@@ -7,6 +7,7 @@ Each example keeps its code, configuration, scripts, and run instructions togeth
 Product documentation is kept outside this repository.
 
 > The [RS485 test](hardware/rs485/README_EN.md) includes C source, wiring diagrams, and build/run instructions for both endpoints.
+> The [temperature/humidity reader](protocols/modbus/rtu/c/temperature-humidity/README_EN.md) and [generic sensor reader](protocols/modbus/rtu/c/sensor-read/README_EN.md) include Modbus RTU C examples and bilingual tutorials.
 > Empty directories containing `.gitkeep` reserve categories only.
 
 ## Find an Example
@@ -33,6 +34,9 @@ luckfox-lyra-plc-examples/
 ├── protocols/                 # Communication protocols
 │   ├── mqtt/
 │   ├── modbus/
+│   │   └── rtu/c/
+│   │       ├── temperature-humidity/
+│   │       └── sensor-read/
 │   ├── ethercat/
 │   └── canopen/
 │

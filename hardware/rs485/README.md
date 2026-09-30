@@ -54,27 +54,25 @@ PLC 需要软件控制 TXEN。C 程序在板端完成“TXEN 拉高 → 发送 �
 cd hardware/rs485
 ```
 
-插入 USB 转换器后，查看电脑识别到的串口：
+先拔下 USB 转 RS485 转换器，在 Ubuntu 电脑上执行以下命令，查看当前的 tty 设备：
 
 ```bash
-ls -l /dev/ttyUSB* /dev/ttyACM* 2>/dev/null
+ls /dev/tty*
 ```
 
-**串口名称以实际识别结果为准。** 下方以 `/dev/ttyUSB0` 为例；如果检测到的是 `/dev/ttyACM0` 或其他名称，替换为实际端口即可。
+再插入转换器，重新执行同一条命令。对比连接前后的列表，新增的 tty 设备就是转换器对应的串口。
 
-```bash
-RS485_PORT=/dev/ttyUSB0
-```
+**后续电脑端命令均以 `/dev/ttyACM0` 为例。** 如果新增的设备名称不同，将命令中的 `/dev/ttyACM0` 替换为实际名称即可。
 
 安装编译和权限工具，并授予当前用户该串口的读写权限：
 
 ```bash
 sudo apt update
 sudo apt install -y build-essential acl
-sudo setfacl -m "u:$(id -un):rw" "$RS485_PORT"
+sudo setfacl -m "u:$(id -un):rw" /dev/ttyACM0
 ```
 
-USB 重新插拔后，重新确认端口并执行授权命令。新开终端时需重新设置 `RS485_PORT`。
+USB 重新插拔后，重新确认串口名称并执行授权命令。
 
 ## 3. 电脑端：编译程序
 
@@ -88,11 +86,11 @@ gcc -std=c11 -O2 -Wall -Wextra rs485_test.c -o rs485_test_pc
 
 ## 4. 板端：上传源码并编译
 
-**第一步：在终端 A（电脑）上传源码。** 文中的 `10.10.20.101` 请替换为 PLC 实际 IP，用户名按实际系统修改。
+**第一步：在终端 A（电脑）上传源码。** 文中的 `PLC_IP` 请替换为 PLC 实际 IP，用户名按实际系统修改。
 
 ```bash
-ssh lyra@10.10.20.101 'mkdir -p ~/rs485-example'
-scp rs485_test.c lyra@10.10.20.101:rs485-example/
+ssh lyra@PLC_IP 'mkdir -p ~/rs485-example'
+scp rs485_test.c lyra@PLC_IP:rs485-example/
 ```
 
 第一条在 PLC 上创建存放目录，第二条将源码复制进去，按提示输入 PLC 密码即可。
@@ -100,7 +98,7 @@ scp rs485_test.c lyra@10.10.20.101:rs485-example/
 **第二步：打开终端 B，登录 PLC。**
 
 ```bash
-ssh lyra@10.10.20.101
+ssh lyra@PLC_IP
 ```
 
 **第三步：登录后，在 PLC 上编译。**
@@ -135,10 +133,10 @@ sudo ./rs485_test_plc -d /dev/ttyS2 -m reply -b 115200 -n 100 -t 60000 \
 **第二步：在终端 A（电脑）发起测试。**
 
 ```bash
-./rs485_test_pc -d "$RS485_PORT" -m ping -b 115200 -n 100
+./rs485_test_pc -d /dev/ttyACM0 -m ping -b 115200 -n 100
 ```
 
-`RS485_PORT` 使用第 2 步设置的实际串口。程序自动发送数据并检查 PLC 的回复。
+程序自动发送数据并检查 PLC 的回复。
 
 **第三步：查看结果。** 两端最后都显示 `SUMMARY ... result=PASS`，表示本轮测试通过。需要提前停止时按 `Ctrl+C`；再次测试前，等待两端程序都退出。
 
@@ -149,7 +147,7 @@ sudo ./rs485_test_plc -d /dev/ttyS2 -m reply -b 115200 -n 100 -t 60000 \
 **先在终端 A（电脑）启动应答：**
 
 ```bash
-./rs485_test_pc -d "$RS485_PORT" -m reply -b 115200 -n 100 -t 60000
+./rs485_test_pc -d /dev/ttyACM0 -m reply -b 115200 -n 100 -t 60000
 ```
 
 **看到 READY 后，在终端 B（PLC）发送：**
@@ -167,7 +165,7 @@ sudo ./rs485_test_plc -d /dev/ttyS2 -m ping -b 115200 -n 100 \
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |
-| `-d, --device PATH` | 必填 | 串口路径；电脑使用实际 USB 串口，PLC 使用 `/dev/ttyS2` |
+| `-d, --device PATH` | 必填 | 串口路径；本例电脑端为 `/dev/ttyACM0`，PLC 端为 `/dev/ttyS2` |
 | `-m, --mode ping\|reply` | 必填 | `ping` 主动发起，`reply` 接收请求并应答 |
 | `-b, --baud N` | `9600` | 波特率，**两端必须一致** |
 | `-n, --count N` | `100` | 测试帧数，范围 1–1000000；两端设为相同值，`0` 不表示无限运行 |
@@ -203,7 +201,7 @@ sudo ./rs485_test_plc \
 
 ```bash
 ./rs485_test_pc \
-  -d "$RS485_PORT" -m ping \
+  -d /dev/ttyACM0 -m ping \
   -b 9600 -n 6 -l 32 -t 3000 -v
 ```
 
@@ -216,7 +214,7 @@ sudo ./rs485_test_plc \
 | 现象 | 检查方法 |
 | --- | --- |
 | `Permission denied` | 电脑重新执行串口 ACL 授权；PLC 用 `sudo` 运行 |
-| 找不到串口 | 确认 USB 转换器已插入，查看实际串口名称并更新 `RS485_PORT` |
+| 找不到串口 | 对比 USB 转换器连接前后的 tty 设备列表，将命令中的 `/dev/ttyACM0` 替换为新增的设备名称 |
 | `Device or resource busy` / GPIO 申请失败 | 退出串口助手、上轮测试或占用 UART2 / GPIO15 的程序；确认 PLC Web 页面已关闭 UART2 |
 | `Manual GPIO TXEN requires kernel RS485 mode disabled` | PLC 命令保留 `--rs485 off`，同时保留两个 GPIO 参数 |
 | 超时、CRC 错误或内容不符 | 检查 A/B/SGND、两端波特率、先应答后发起的启动顺序，以及是否使用了本例的两个程序 |
@@ -224,3 +222,5 @@ sudo ./rs485_test_plc \
 | `Exec format error` | 可执行文件架构不匹配，在对应机器上重新编译源码 |
 
 普通串口文本助手或 Modbus 从站不能直接替代本例的 `reply` 程序；两端需要使用相同的测试帧协议。
+
+读取实际 Modbus RTU 传感器请使用 [温湿度读取例程](../../protocols/modbus/rtu/c/temperature-humidity/README.md)或[通用传感器读取例程](../../protocols/modbus/rtu/c/sensor-read/README.md)。
